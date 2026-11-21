@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="T&amp;T Radio">
+<meta name="theme-color" content="#141418">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>T&amp;T Radio</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#141418;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;transition:background .6s}
+#bg .band{position:absolute;top:-30%;height:170%;transform:rotate(-28deg);transform-origin:top left}
+#bg .dot{position:absolute;border-radius:50%}
+#bg .glow{position:absolute;border-radius:50%;filter:blur(60px);transition:background .8s}
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;padding:calc(env(safe-area-inset-top) + 8px) 10px 0}
+header{display:flex;align-items:center;gap:8px;padding:4px 2px 8px}
+.title{font-weight:700;font-size:19px;white-space:nowrap}
+.by{color:#b4b4bc;font-size:12px;white-space:nowrap}
+.np{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:14px}
+.np span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{background:rgba(255,255,255,.16);color:#fff;border:0;border-radius:10px;padding:7px 11px;font-size:14px;font-family:inherit}
+.btn:active{background:rgba(255,255,255,.3)}
+#stop{display:none}
+.eq{display:none;align-items:flex-end;gap:2px;height:13px;flex:none}
+.eq i{width:3px;background:#ffc400;animation:b .9s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.25s}.eq i:nth-child(3){animation-delay:.5s}
+@keyframes b{0%,100%{height:4px}50%{height:13px}}
+#list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;gap:6px;align-content:start;padding-bottom:calc(env(safe-area-inset-bottom) + 20px);grid-template-columns:1fr}
+@media (min-width:640px){#list{grid-template-columns:1fr 1fr}}
+#list.tiles{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+.row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:14px;background:rgba(30,30,36,.8);border:2px solid transparent}
+.row.on{background:#ce1126}
+.row.moving{border-color:#ffc400}
+.logo{width:44px;height:44px;border-radius:9px;background:#fff;flex:none;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;color:#ce1126;font-weight:700;font-size:12px}
+.logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.txt{min-width:0}
+.nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inf{color:#b4b4bc;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.on .inf{color:#ffdce1}
+.tiles .row{flex-direction:column;text-align:center;gap:5px;padding:8px 6px}
+.tiles .logo{width:72px;height:72px;font-size:16px}
+.tiles .nm{font-size:12px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tiles .inf{display:none}
+#sheet{position:fixed;inset:0;z-index:5;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
+#sheet .box{width:100%;max-width:480px;background:#232329;border-radius:16px 16px 0 0;padding:14px 12px calc(env(safe-area-inset-bottom) + 12px)}
+#sheet h3{margin:4px 6px 10px;font-size:16px}
+#sheet button{display:block;width:100%;text-align:left;margin:4px 0;padding:13px 14px;border-radius:11px;border:0;background:rgba(255,255,255,.08);color:#fff;font-size:15px;font-family:inherit}
+#sheet button.sel{background:#ce1126}
+#sheet input{width:100%;margin:4px 0;padding:12px;border-radius:10px;border:0;font-size:16px}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);background:#000c;padding:10px 16px;border-radius:20px;font-size:14px;z-index:6;display:none;max-width:90%;text-align:center}
+#movebar{display:none;gap:6px;padding:0 2px 8px}
+#movebar .btn{flex:1}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div id="app">
+  <header>
+    <span class="title">T&amp;T Radio</span><span class="by">built by SMR</span>
+    <div class="np"><span class="eq" id="eq"><i></i><i></i><i></i></span><span id="status">Pick a station</span></div>
+    <button class="btn" id="stop">■ Stop</button>
+    <button class="btn" id="cog" aria-label="Settings">⚙</button>
+  </header>
+  <div id="movebar"><button class="btn" data-m="top">⤒ Top</button><button class="btn" data-m="up">↑ Up</button><button class="btn" data-m="down">↓ Down</button><button class="btn" data-m="bottom">⤓ Bottom</button><button class="btn" data-m="done">Done</button></div>
+  <div id="list"></div>
+</div>
+<div id="sheet"><div class="box" id="sheetbox"></div></div>
+<div id="toast"></div>
+<audio id="audio" preload="none" playsinline></audio>
+<script>
+const CURATED = [{"name":"96.1 WEFM","freq":"96.1","urls":["https://fms.ttrn.org/live/961wefm.sdp/playlist.m3u8","http://fms.96wefm.com:1936/live/961wefm.sdp/playlist.m3u8"],"logo":"https://oss-us.fileget.net/tingfm/img/l/2/39642.v4.png","info":"Soca, dancehall, urban","clicks":900},{"name":"Red 96.7 FM","freq":"96.7","urls":["https://ice31.securenetsystems.net/RED","http://104.238.99.1:8000/red967.mp3","https://ice31.securenetsystems.net/RED967"],"logo":"","info":"Urban, reggae, soca","clicks":900},{"name":"103.1 FM","freq":"103.1","urls":["https://s4.myradiostream.com/14348/listen.mp3","https://stream.zeno.fm/nu1uudd8mg0uv","http://psn3.prostreaming.net:8310/;"],"logo":"","info":"East Indian, chutney","clicks":900},{"name":"Sangeet 106.1 FM","freq":"106.1","urls":["https://www.radiomast.io/stream/22e2c991-fc0c-4242-8cba-0a64d0aea809/listen","https://streams.radiomast.io/22e2c991-fc0c-4242-8cba-0a64d0aea809"],"logo":"https://oss-us.fileget.net/tingfm/img/l/9/39639.v7.png","info":"East Indian, Bollywood","clicks":900},{"name":"eNFX Radio HD","freq":"","urls":["https://enfxradio.radioca.st/;"],"logo":"https://oss-us.fileget.net/tingfm/img/l/4/39644.v7.png","info":"Soca, chutney, mixes","clicks":900},{"name":"Slam 100.5 FM","freq":"100.5","urls":["https://www.radiomast.io/stream/68540e88-54b8-4924-b098-5a668f7da7b6/listen","https://streams.radiomast.io/68540e88-54b8-4924-b098-5a668f7da7b6"],"logo":"https://oss-us.fileget.net/tingfm/img/l/4/40434.v4.png","info":"Urban, soca, dancehall","clicks":900},{"name":"Bacchanal Radio","freq":"","urls":["https://c13.radioboss.fm:18470/stream"],"logo":"https://oss-us.fileget.net/tingfm/img/l/8/39648.v8.png","info":"Soca","clicks":900},{"name":"Sweet FM 100.1","freq":"100.1","urls":["https://media.streambrothers.com:8448/stream"],"logo":"https://oss-us.fileget.net/tingfm/img/l/7/39627.v9.png","info":"Soca, calypso","clicks":400},{"name":"WACK Radio 90.1","freq":"90.1","urls":["https://stream.zenolive.com/6178mp9emq5tv","https://stream.zeno.fm/6178mp9emq5tv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/0/39630.v4.png","info":"Variety","clicks":400},{"name":"The Street 91.9 FM","freq":"91.9","urls":["https://stream.zeno.fm/bi5helbi4ggtv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/7/39637.v8.png","info":"Soca","clicks":400},{"name":"95 The Ultimate One","freq":"95.1","urls":["https://www.radiomast.io/stream/aae72a18-3fa0-4b9a-a4c4-5a19655e1c68/listen","https://streams.radiomast.io/aae72a18-3fa0-4b9a-a4c4-5a19655e1c68"],"logo":"https://oss-us.fileget.net/tingfm/img/l/1/39641.v7.png","info":"Pop, R&B, soca","clicks":400},{"name":"Radio Jaagriti 102.7","freq":"102.7","urls":["https://radio.sibercdn.com/Radio_Jaagriti-15/index.m3u8"],"logo":"https://oss-us.fileget.net/tingfm/img/l/2/39632.v9.png","info":"Hindu devotional","clicks":400},{"name":"Freedom 106.5 (Aakash Vani)","freq":"106.5","urls":["https://www.radiomast.io/stream/3ccc1156-fcf8-4ba7-9a0c-28e3a465e1ae/listen","https://streams.radiomast.io/3ccc1156-fcf8-4ba7-9a0c-28e3a465e1ae"],"logo":"https://oss-us.fileget.net/tingfm/img/l/2/40452.v8.png","info":"Talk, East Indian","clicks":900},{"name":"Vibe CT 105.1 FM","freq":"105.1","urls":["https://www.radiomast.io/stream/c35d311e-cc60-41b9-b0c5-339e62c14dee/listen","https://streams.radiomast.io/c35d311e-cc60-41b9-b0c5-339e62c14dee"],"logo":"","info":"Soca, calypso","clicks":400},{"name":"Sky 99.5 FM","freq":"99.5","urls":["https://www.radiomast.io/stream/efe56859-e3cb-4563-8e94-0320488b7cbd/listen","https://streams.radiomast.io/efe56859-e3cb-4563-8e94-0320488b7cbd"],"logo":"","info":"Gospel","clicks":400},{"name":"Win Radio 101.1","freq":"-","urls":["https://stream.radio.co/s9f46a9bb1/listen"],"logo":"https://oss-us.fileget.net/tingfm/img/l/5/39635.v3.png","info":"East Indian","clicks":900},{"name":"Boom Champions 94.1","freq":"94.1","urls":["https://s8.yesstreaming.net:17103/stream","http://s8.yesstreaming.net:7103/stream"],"logo":"https://oss-us.fileget.net/tingfm/img/l/5/40465.v4.png","info":"Soca, variety","clicks":400},{"name":"Power 102.1 FM","freq":"102.1","urls":["https://s8.yesstreaming.net:17169/stream"],"logo":"","info":"Talk, hits","clicks":400},{"name":"i95.5 FM","freq":"95.5","urls":["https://ice31.securenetsystems.net/I95","https://ice66.securenetsystems.net/I95","https://ice42.securenetsystems.net/I95","https://ice9.securenetsystems.net/I95","https://ice24.securenetsystems.net/I95","https://ice64.securenetsystems.net/I95"],"logo":"","info":"News, talk","clicks":400},{"name":"Taj 92.3 FM","freq":"92.3","urls":["https://ice66.securenetsystems.net/TAJ","https://ice31.securenetsystems.net/TAJ","https://ice66.securenetsystems.net/TAJ","https://ice42.securenetsystems.net/TAJ","https://ice9.securenetsystems.net/TAJ","https://ice24.securenetsystems.net/TAJ","https://ice64.securenetsystems.net/TAJ"],"logo":"","info":"Bollywood, East Indian","clicks":400},{"name":"Hott 93","freq":"93.5","urls":["https://ice41.securenetsystems.net/HOTT93","https://ice31.securenetsystems.net/HOTT93","https://ice66.securenetsystems.net/HOTT93"],"logo":"","info":"Hits","clicks":400},{"name":"W 107.1 FM The Word","freq":"107.1","urls":["https://ice31.securenetsystems.net/THEWORD","http://104.238.99.1:8000/w107_128.mp3","https://ice31.securenetsystems.net/W107"],"logo":"","info":"Gospel","clicks":400},{"name":"ISAAC 98.1 FM","freq":"98.1","urls":["https://ice66.securenetsystems.net/FFBN"],"logo":"","info":"Gospel","clicks":400},{"name":"Radio 90.5 FM","freq":"90.5","urls":["https://ice42.securenetsystems.net/CR90","https://ice31.securenetsystems.net/CR90","https://ice66.securenetsystems.net/CR90"],"logo":"","info":"Bollywood","clicks":900},{"name":"Star 947","freq":"94.7","urls":["https://fms.ttrn.org/live/star947.sdp/playlist.m3u8","http://fms.96wefm.com:1936/live/star947.sdp/playlist.m3u8"],"logo":"","info":"Pop, alternative","clicks":400},{"name":"107.7 FM Music For Life","freq":"107.7","urls":["https://fms.ttrn.org/live/1077fm.sdp/playlist.m3u8"],"logo":"","info":"Oldies, easy listening","clicks":400},{"name":"More FM 104.7","freq":"104.7","urls":["https://usa20.fastcast4u.com:2070/1"],"logo":"","info":"Variety","clicks":400},{"name":"Soca Switch Radio","freq":"","urls":["https://stream.zeno.fm/4f738mzizi1uv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/3/39653.v16.png","info":"Soca","clicks":400},{"name":"Soca Fever","freq":"","urls":["https://centova87.shoutcastservices.com/proxy/socafever/stream"],"logo":"https://oss-us.fileget.net/tingfm/img/l/3/87573.v4.png","info":"Soca","clicks":400},{"name":"Real Radio","freq":"","urls":["https://streaming.radio.co/s3928a1fef/listen"],"logo":"https://oss-us.fileget.net/tingfm/img/l/8/40458.v3.png","info":"Variety","clicks":400},{"name":"Global FM Reggae Radio","freq":"","urls":["https://servidor39-5.brlogic.com:7190/live"],"logo":"https://oss-us.fileget.net/tingfm/img/l/6/90676.v6.png","info":"Reggae","clicks":400},{"name":"Caribbean Wave Radio QX93","freq":"","urls":["https://stream.zeno.fm/xzzxq317ps8uv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/3/94363.v2.png","info":"Caribbean","clicks":400},{"name":"Canopy Radio","freq":"","urls":["https://s2.radio.co/saa8aeb242/listen"],"logo":"https://oss-us.fileget.net/tingfm/img/l/3/40463.v5.png","info":"Variety","clicks":400},{"name":"Woods Hit Radio","freq":"","urls":["https://stream.zeno.fm/z2rpt80t4mzuv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/3/86633.v4.png","info":"Hits","clicks":400},{"name":"Woods Hit Radio AC","freq":"","urls":["https://cast4.asurahosting.com/proxy/nigel/stream"],"logo":"https://oss-us.fileget.net/tingfm/img/l/1/147971.v3.png","info":"Adult contemporary","clicks":400},{"name":"TDG Radio","freq":"","urls":["https://stream.zeno.fm/s9heq9mspwzuv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/0/89320.v6.png","info":"Caribbean hits","clicks":400},{"name":"RadioTrinbagoWeb","freq":"","urls":["https://stream.zeno.fm/pn9865an7tzuv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/9/113539.v4.png","info":"Calypso, soca","clicks":400},{"name":"4 Elements Radio","freq":"","urls":["http://198.245.61.103:8027/;"],"logo":"https://oss-us.fileget.net/tingfm/img/l/5/40425.v11.png","info":"Variety","clicks":400},{"name":"Fresh Fire Gospel Radio TT","freq":"","urls":["https://stream.zeno.fm/t7hky208ab5vv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/4/135764.v1.png","info":"Gospel","clicks":400},{"name":"MaxZmum Radio 2.0","freq":"","urls":["https://cast5.my-control-panel.com/proxy/maxzmum/stream"],"logo":"https://oss-us.fileget.net/tingfm/img/l/4/128174.v4.png","info":"Soca, reggae","clicks":400},{"name":"Joint Services Radio TT","freq":"","urls":["https://stream.zeno.fm/cg99qzns5rhvv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/9/117239.v6.png","info":"Variety","clicks":400},{"name":"Love&Life Radio","freq":"","urls":["https://listen.radioking.com/radio/643939/stream/707092"],"logo":"https://oss-us.fileget.net/tingfm/img/l/8/145698.v2.png","info":"Variety","clicks":400},{"name":"Elegant Treasures Radio","freq":"","urls":["https://stream.zeno.fm/kikyuh9f7bttv"],"logo":"https://oss-us.fileget.net/tingfm/img/l/9/119639.v3.png","info":"Variety","clicks":400},{"name":"Scorch Radio 101.1","freq":"101.1","urls":["https://s3.radio.co/sd03f5dd0c/listen"],"logo":"","info":"Soca, variety","clicks":900},{"name":"Next 99.1 FM","freq":"99.1","urls":["https://media.streambrothers.com:8442/stream"],"logo":"","info":"Soca, urban","clicks":400},{"name":"Music Radio 97.1 FM","freq":"97.1","urls":["https://ice42.securenetsystems.net/MR97"],"logo":"","info":"Variety","clicks":400},{"name":"Talk City 91.1 FM","freq":"91.1","urls":["https://media.streambrothers.com:8450/stream"],"logo":"","info":"Talk","clicks":400},{"name":"Heartbeat 104.1 FM","freq":"104.1","urls":["https://ice42.securenetsystems.net/CLCL"],"logo":"","info":"Adult urban, R&B","clicks":400},{"name":"Platinum Hits 103.5 FM","freq":"103.5","urls":["https://ice42.securenetsystems.net/PLATHITS"],"logo":"","info":"Hits","clicks":400},{"name":"Pure 97.7 Mixx","freq":"97.7","urls":["http://uk25freenew.listen2myradio.com:18190/;"],"logo":"","info":"Love songs","clicks":300}];
+const LOGOS = {"961wefm":"https://cdn.radoxo.com/images/trinidad/radio-961-wefm.webp","boomchampions":"https://cdn.radoxo.com/images/trinidad/radio-boom-champions.webp","scorch":"https://cdn.radoxo.com/images/trinidad/scorch-radio-1011.webp","sweet":"https://cdn.radoxo.com/images/trinidad/radio-sweet-fm.webp","slam":"https://cdn.radoxo.com/images/trinidad/radio-slam.webp","vibect":"https://cdn.radoxo.com/images/trinidad/radio-vibe-ct-105-fm.webp","next991":"https://cdn.radoxo.com/images/trinidad/next-99.webp","1077fm":"https://cdn.radoxo.com/images/trinidad/music-for-life.webp","i955":"https://cdn.radoxo.com/images/trinidad/i955-fm.webp","sangeet":"https://cdn.radoxo.com/images/trinidad/radio-sangeet-1061-fm.webp","musicradio97":"https://cdn.radoxo.com/images/trinidad/music-radio-97.webp","1031fm":"https://cdn.radoxo.com/images/trinidad/103-fm.webp","red967":"https://cdn.radoxo.com/images/trinidad/red-967-fm.webp","95theultimate":"https://cdn.radoxo.com/images/trinidad/95-the-ultimate-one.webp","radiotrinbagoweb":"https://cdn.radoxo.com/images/trinidad/radiotrinbagoweb.webp","winradio":"https://cdn.radoxo.com/images/trinidad/win-radio-1011-fm.webp","isaac981":"https://cdn.radoxo.com/images/trinidad/isaac-981-the-promise.webp","enfx":"https://cdn.radoxo.com/images/trinidad/enfx-radio-hd.webp","hott93":"https://cdn.radoxo.com/images/trinidad/radio-hott-93.webp","radio905":"https://cdn.radoxo.com/images/trinidad/radio-905.webp","radiotambrin":"https://cdn.radoxo.com/images/trinidad/radio-tambrin.webp","tambrin":"https://cdn.radoxo.com/images/trinidad/radio-tambrin.webp","star947":"https://cdn.radoxo.com/images/trinidad/star-947-hd.webp","bacchanal":"https://cdn.radoxo.com/images/trinidad/bacchanal-radio.webp","socaswitch":"https://cdn.radoxo.com/images/trinidad/soca-switch-radio.webp","socafever":"https://cdn.radoxo.com/images/trinidad/soca-fever.webp","wackradio":"https://cdn.radoxo.com/images/trinidad/wack-radio.webp","radiojaagriti":"https://cdn.radoxo.com/images/trinidad/radio-jaagriti.webp","lit1023":"https://cdn.radoxo.com/images/trinidad/lit-1023-fm.webp","thestreet919":"https://cdn.radoxo.com/images/trinidad/the-street-919-fm.webp","sky995":"https://cdn.radoxo.com/images/trinidad/radio-sky.webp","platinumhits":"https://cdn.radoxo.com/images/trinidad/platinum-hits.webp","heartbeat":"https://cdn.radoxo.com/images/trinidad/radio-heartbeat.webp","morefm":"https://cdn.radoxo.com/images/trinidad/more-fm.webp","freedom1065":"https://cdn.radoxo.com/images/trinidad/freedom-1065fm.webp","aakashvani":"https://cdn.radoxo.com/images/trinidad/aakash-vani.webp","taj923":"https://cdn.radoxo.com/images/trinidad/taj-923-fm.webp","freshfire":"https://cdn.radoxo.com/images/trinidad/fresh-fire-gospel-radio-tt.webp","talkcity":"https://cdn.radoxo.com/images/trinidad/talk-city.png","globalfmreggae":"https://cdn.radoxo.com/images/trinidad/global-fm-reggae-radio.webp","power102":"https://cdn.radoxo.com/images/trinidad/power-102fm.webp","pure977":"https://cdn.radoxo.com/images/trinidad/pure-977-mixx-online-fm-the-love-station.webp","w1071":"https://cdn.radoxo.com/images/trinidad/w-1071-fm-the-word.webp","fullycatholic":"https://cdn.radoxo.com/images/trinidad/fully-catholic-radio.webp","dreadradio":"https://cdn.radoxo.com/images/trinidad/dread-radio.webp"};
+const DEFAULT_FAVS = ["sangeet1061","961wefm","enfx","scorchradio1011","1031fm","red967","winradio1011","slam1005","bacchanal","boomchampions941","taj923","next991","radio905","star947","radiojaagriti1027","hott93","radiotambrin927","socaswitch","smashradiott","95theultimateone"];
+const MIRRORS = ["https://de1.api.radio-browser.info","https://nl1.api.radio-browser.info","https://at1.api.radio-browser.info","https://all.api.radio-browser.info"];
+const QUERIES = ["/json/stations/bycountrycodeexact/TT?hidebroken=true&limit=500","/json/stations/search?name=trinidad&hidebroken=true&limit=200","/json/stations/search?name=tobago&hidebroken=true&limit=200","/json/stations/search?tag=trinidad&hidebroken=true&limit=200"];
+const LOOKS = ["Flag stripe","Now-playing glow","Carnival night"];
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("ttr_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("ttr_" + k, JSON.stringify(v)); } catch (e) {} }
+};
+const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const freqOf = s => { const m = /(?:^|[^0-9.])((?:8[89]|9[0-9]|10[0-7])\.[0-9])(?![0-9])/.exec(s); return m ? m[1] : ""; };
+// iPhone blocks insecure (http) streams on a secure page, so try a secure version of the link instead
+const secure = u => u.startsWith("http://") ? "https://" + u.slice(7) : u;
+
+let all = new Map();           // id -> station
+let favs = store.get("favs", null);
+let rest = store.get("rest", []);
+let look = store.get("look", 0);
+let tiles = store.get("tiles", false);
+let current = null, urlIdx = 0, moving = null, startTimer = null, directory = store.get("dir", null);
+
+function curatedStations() {
+  return CURATED.map(c => ({ id: "extra:" + c.name, name: c.name, freq: c.freq || freqOf(c.name), urls: c.urls.slice(), logo: c.logo || "", info: c.info || "", clicks: c.clicks || 0 }));
+}
+function findCurated(list, d) {
+  const f = freqOf(d.name), n = norm(d.name);
+  for (const c of list) {
+    if (f && c.freq !== "-" && f === c.freq) return c;
+    const cn = norm(c.name);
+    if (n.length > 3 && (n === cn || n.startsWith(cn) || cn.startsWith(n))) return c;
+  }
+  return null;
+}
+function merge() {
+  const cur = curatedStations();
+  all = new Map(cur.map(s => [s.id, s]));
+  const seen = new Set(cur.map(s => norm(s.name)));
+  for (const d of (directory || [])) {
+    const c = findCurated(cur, d);
+    if (c) { if (!c.urls.includes(d.urls[0])) c.urls.unshift(d.urls[0]); if (!c.logo) c.logo = d.logo; continue; }
+    if (seen.has(norm(d.name))) continue;
+    seen.add(norm(d.name)); all.set(d.id, d);
+  }
+  for (const c of store.get("custom", [])) all.set(c.id, c);
+  for (const s of all.values()) {
+    const n = norm(s.name);
+    for (const k in LOGOS) if (n.startsWith(k)) { if (LOGOS[k] !== s.logo) { s.logo2 = s.logo; s.logo = LOGOS[k]; } break; }
+  }
+  applyDefaults();
+  render();
+}
+function applyDefaults() {
+  if (favs !== null && !store.get("defaults", false)) return;
+  if (store.get("touched", false)) return;
+  const order = [];
+  for (const key of DEFAULT_FAVS) {
+    let best = null;
+    for (const s of all.values()) if (norm(s.name).startsWith(key) && (!best || (s.id.startsWith("extra:") && !best.id.startsWith("extra:")))) best = s;
+    if (best && !order.includes(best.id)) order.push(best.id);
+  }
+  favs = order; store.set("favs", favs); store.set("defaults", true);
+}
+function restOrder() {
+  const ids = rest.filter(id => all.has(id) && !favs.includes(id));
+  const others = [...all.values()].filter(s => !favs.includes(s.id) && !ids.includes(s.id))
+    .sort((a, b) => (b.clicks - a.clicks) || a.name.localeCompare(b.name));
+  return ids.concat(others.map(s => s.id));
+}
+function rows() { return favs.filter(id => all.has(id)).concat(restOrder()); }
+
+function initials(s) { return s.freq && s.freq !== "-" ? s.freq : (freqOf(s.name) || s.name.split(/\s+/).map(w => w[0]).join("").slice(0, 3).toUpperCase()); }
+function isActive(s) { return current && current.id === s.id && !$("audio").paused; }
+
+function render() {
+  const list = $("list");
+  list.className = tiles ? "tiles" : "";
+  list.innerHTML = "";
+  for (const id of rows()) {
+    const s = all.get(id), fav = favs.includes(id);
+    const row = document.createElement("div");
+    row.className = "row" + (current && current.id === id ? " on" : "") + (moving === id ? " moving" : "");
+    const logo = document.createElement("div"); logo.className = "logo"; logo.textContent = initials(s);
+    if (s.logo) {
+      const img = document.createElement("img"); img.loading = "lazy"; img.alt = ""; img.src = s.logo;
+      img.onerror = () => { if (s.logo2 && img.src !== s.logo2) img.src = s.logo2; else img.remove(); };
+      logo.appendChild(img);
+    }
+    const txt = document.createElement("div"); txt.className = "txt";
+    const playing = current && current.id === id;
+    txt.innerHTML = '<div class="nm"></div><div class="inf"></div>';
+    txt.firstChild.textContent = (playing ? "▶ " : fav ? "★ " : "") + s.name;
+    txt.lastChild.textContent = s.info || "Trinidad & Tobago";
+    row.append(logo, txt);
+    let pressTimer = null, longPressed = false;
+    row.addEventListener("touchstart", () => { longPressed = false; pressTimer = setTimeout(() => { longPressed = true; menu(s); }, 550); }, { passive: true });
+    row.addEventListener("touchend", () => clearTimeout(pressTimer));
+    row.addEventListener("touchmove", () => clearTimeout(pressTimer), { passive: true });
+    row.addEventListener("contextmenu", e => { e.preventDefault(); menu(s); });
+    row.addEventListener("click", () => { if (longPressed) return; if (moving) return; if (current && current.id === s.id && !$("audio").paused) stop(); else play(s); });
+    list.appendChild(row);
+  }
+}
+
+// ---------- playback ----------
+function candidates(s) {
+  const out = [];
+  for (const u of s.urls) { const v = secure(u); if (!out.includes(v)) out.push(v); }
+  return out;
+}
+function play(s) {
+  current = s; urlIdx = 0;
+  setStatus("⏳ " + s.name + "…");
+  tryUrl();
+  render();
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: s.name, artist: "T&T Radio · built by SMR",
+      artwork: s.logo ? [{ src: s.logo, sizes: "300x300" }] : [{ src: "icon-512.png", sizes: "512x512", type: "image/png" }] });
+    navigator.mediaSession.setActionHandler("pause", stop);
+    navigator.mediaSession.setActionHandler("stop", stop);
+    navigator.mediaSession.setActionHandler("play", () => current && play(current));
+  }
+  updateGlow();
+}
+function tryUrl() {
+  const a = $("audio"), list = candidates(current);
+  clearTimeout(startTimer);
+  if (urlIdx >= list.length) {
+    setStatus("⚠ " + current.name + " isn't streaming right now"); $("stop").style.display = "none"; $("eq").style.display = "none";
+    return;
+  }
+  a.src = list[urlIdx];
+  a.play().catch(() => {});
+  startTimer = setTimeout(() => { urlIdx++; tryUrl(); }, 12000); // no sound after 12s: try the next link
+}
+function stop() {
+  const a = $("audio"); clearTimeout(startTimer);
+  a.pause(); a.removeAttribute("src"); a.load();
+  current = null; setStatus("Pick a station"); $("stop").style.display = "none"; $("eq").style.display = "none";
+  render(); updateGlow();
+}
+function setStatus(t) { $("status").textContent = t; }
+$("audio").addEventListener("playing", () => {
+  clearTimeout(startTimer);
+  if (!current) return;
+  setStatus(current.name); $("stop").style.display = "inline-block"; $("eq").style.display = "inline-flex";
+});
+$("audio").addEventListener("error", () => { if (current && $("audio").getAttribute("src")) { urlIdx++; tryUrl(); } });
+$("stop").onclick = stop;
+
+// ---------- favourites and order ----------
+function touched() { store.set("touched", true); }
+function moveIn(s, how) {
+  const fav = favs.includes(s.id);
+  const block = fav ? favs : restOrder();
+  const i = block.indexOf(s.id); if (i < 0) return;
+  block.splice(i, 1);
+  let to = how === "top" ? 0 : how === "bottom" ? block.length : Math.max(0, Math.min(block.length, i + (how === "up" ? -1 : 1)));
+  block.splice(to, 0, s.id);
+  touched();
+  if (fav) store.set("favs", favs); else { rest = block; store.set("rest", rest); }
+  render();
+}
+function menu(s) {
+  const fav = favs.includes(s.id);
+  sheet(s.name, [
+    [fav ? "Remove from favourites" : "★ Add to favourites (moves to the top)", () => {
+      touched();
+      if (fav) { favs = favs.filter(x => x !== s.id); rest = [s.id].concat(rest.filter(x => x !== s.id)); store.set("rest", rest); }
+      else { favs.push(s.id); rest = rest.filter(x => x !== s.id); store.set("rest", rest); toast("★ Added to favourites"); }
+      store.set("favs", favs); render();
+    }],
+    ["Move…  (arrows at the top)", () => { moving = s.id; $("movebar").style.display = "flex"; render(); }],
+    ["Move to top", () => moveIn(s, "top")],
+    ["Move to bottom", () => moveIn(s, "bottom")],
+  ].concat(s.id.startsWith("custom:") ? [["Delete this added station", () => {
+    store.set("custom", store.get("custom", []).filter(c => c.id !== s.id)); favs = favs.filter(x => x !== s.id); store.set("favs", favs); merge();
+  }]] : []));
+}
+$("movebar").addEventListener("click", e => {
+  const m = e.target.dataset.m; if (!m) return;
+  if (m === "done") { moving = null; $("movebar").style.display = "none"; render(); toast("Order saved"); return; }
+  moveIn(all.get(moving), m);
+});
+
+// ---------- settings ----------
+$("cog").onclick = () => sheet("Settings", [
+  ["Look:  " + LOOKS[look], () => sheet("Look", LOOKS.map((n, i) => [n, () => { look = i; store.set("look", look); drawBg(); }, i === look]))],
+  ["View:  " + (tiles ? "Logo tiles" : "List") + "  (switch to " + (tiles ? "list" : "logo tiles") + ")", () => { tiles = !tiles; store.set("tiles", tiles); render(); }],
+  ["+ Add a station", addStation],
+  ["Refresh station list", () => { toast("Refreshing…"); fetchDirectory(); }],
+  ["How to install on iPhone", () => toast("In Safari: tap Share, then Add to Home Screen")],
+]);
+function addStation() {
+  const box = $("sheetbox");
+  box.innerHTML = '<h3>Add a station</h3><input id="an" placeholder="Station name, e.g. 96.1 WEFM"><input id="au" placeholder="Stream link (https://…)" inputmode="url" autocapitalize="off"><button class="sel" id="aok">Add and favourite</button><button id="ano">Cancel</button>';
+  $("ano").onclick = closeSheet;
+  $("aok").onclick = () => {
+    const n = $("an").value.trim(), u = $("au").value.trim();
+    if (!n || !/^https?:\/\//.test(u)) { toast("Need a name and a link starting with http"); return; }
+    const s = { id: "custom:" + u, name: n, freq: "", urls: [u], logo: "", info: "Added by you", clicks: 100000 };
+    const c = store.get("custom", []); c.push(s); store.set("custom", c);
+    favs.push(s.id); store.set("favs", favs); touched(); closeSheet(); merge(); play(all.get(s.id));
+  };
+  $("sheet").style.display = "flex";
+}
+function sheet(title, items) {
+  const box = $("sheetbox");
+  box.innerHTML = "<h3></h3>"; box.firstChild.textContent = title;
+  for (const [label, fn, sel] of items) {
+    const b = document.createElement("button"); b.textContent = label; if (sel) b.className = "sel";
+    b.onclick = () => { closeSheet(); fn(); }; box.appendChild(b);
+  }
+  const c = document.createElement("button"); c.textContent = "Close"; c.onclick = closeSheet; box.appendChild(c);
+  $("sheet").style.display = "flex";
+}
+function closeSheet() { $("sheet").style.display = "none"; }
+$("sheet").addEventListener("click", e => { if (e.target.id === "sheet") closeSheet(); });
+function toast(t) { const el = $("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.display = "none", 2600); }
+
+// ---------- looks ----------
+function drawBg() {
+  const bg = $("bg"); bg.innerHTML = "";
+  if (look === 0) {
+    bg.style.background = "#14141a";
+    for (const [left, width, color] of [["62%", "40%", "rgba(206,17,38,.5)"], ["75%", "10%", "rgba(255,255,255,.6)"], ["77%", "6%", "#000"]]) {
+      const d = document.createElement("div"); d.className = "band"; d.style.left = left; d.style.width = width; d.style.background = color; bg.appendChild(d);
+    }
+  } else if (look === 1) {
+    bg.style.background = "#101014";
+    const g = document.createElement("div"); g.className = "glow"; g.id = "glow";
+    Object.assign(g.style, { left: "-20%", top: "-25%", width: "90%", height: "80%", background: "#ce1126", opacity: ".45" }); bg.appendChild(g);
+    const g2 = document.createElement("div"); g2.className = "glow"; g2.id = "glow2";
+    Object.assign(g2.style, { right: "-25%", bottom: "-25%", width: "70%", height: "60%", background: "#ce1126", opacity: ".22" }); bg.appendChild(g2);
+    updateGlow();
+  } else {
+    bg.style.background = "#1a1033";
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const cols = ["rgba(255,196,0,.6)", "rgba(206,17,38,.6)", "rgba(255,255,255,.45)"];
+    for (let i = 0; i < 120; i++) {
+      const d = document.createElement("div"); d.className = "dot"; const r = 2 + rnd() * 4;
+      Object.assign(d.style, { width: r + "px", height: r + "px", left: rnd() * 100 + "%", top: rnd() * 100 + "%", background: cols[i % 3] });
+      bg.appendChild(d);
+    }
+    const line = document.createElement("div"); Object.assign(line.style, { position: "absolute", left: 0, right: 0, bottom: 0, height: "4px", background: "#ce1126" }); bg.appendChild(line);
+  }
+}
+function updateGlow() {
+  if (look !== 1) return;
+  const set = c => { for (const id of ["glow", "glow2"]) { const g = $(id); if (g) g.style.background = c; } };
+  if (!current || !current.logo) { set("#ce1126"); return; }
+  const img = new Image(); img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try {
+      const cv = document.createElement("canvas"); cv.width = cv.height = 24; const x = cv.getContext("2d");
+      x.drawImage(img, 0, 0, 24, 24); const px = x.getImageData(0, 0, 24, 24).data;
+      let best = null, bestSat = -1;
+      for (let i = 0; i < px.length; i += 4) {
+        const r = px[i], g = px[i + 1], b = px[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx - mn;
+        if (sat > bestSat && mx > 60) { bestSat = sat; best = [r, g, b]; }
+      }
+      set(best && bestSat > 40 ? `rgb(${best.join(",")})` : "#ce1126");
+    } catch (e) { set("#ce1126"); } // logo host doesn't allow colour reading
+  };
+  img.onerror = () => set("#ce1126");
+  img.src = current.logo;
+}
+
+// ---------- live directory ----------
+async function fetchDirectory() {
+  for (const m of MIRRORS) {
+    try {
+      const out = [], seen = new Set();
+      for (const q of QUERIES) {
+        const r = await fetch(m + q); if (!r.ok) continue;
+        for (const o of await r.json()) {
+          const text = (o.name + " " + o.tags + " " + o.country).toLowerCase();
+          if (!(o.countrycode === "TT" || text.includes("trinidad") || text.includes("tobago"))) continue;
+          const url = o.url_resolved || o.url; const name = (o.name || "").trim().replace(/\s+/g, " ");
+          if (!url || !name || seen.has(o.stationuuid)) continue;
+          seen.add(o.stationuuid);
+          out.push({ id: o.stationuuid, name, freq: "", urls: [url], logo: o.favicon || "", info: (o.tags || "").replace(/,/g, ", ").slice(0, 50), clicks: o.clickcount || 0 });
+        }
+      }
+      if (out.length) { directory = out; store.set("dir", out); merge(); return; }
+    } catch (e) {}
+  }
+}
+
+drawBg();
+merge();
+fetchDirectory();
+</script>
+</body>
+</html>
